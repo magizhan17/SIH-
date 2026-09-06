@@ -33,7 +33,7 @@ const pageTitles: Record<string, string> = {
 export default function TopNavbar({ onMenuClick, isDarkMode, onThemeToggle }: TopNavbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { selectedConveyor, setSelectedConveyor, openEmergencyModal, alerts, isDamageSimulated } = useApp();
+  const { selectedConveyor, setSelectedConveyor, openEmergencyModal, alerts, isDamageSimulated, isRestConnected, isWsConnected } = useApp();
   const [showConveyorMenu, setShowConveyorMenu] = useState(false);
 
   const unacknowledgedCount = alerts.filter((a) => !a.acknowledged).length;
@@ -60,6 +60,22 @@ export default function TopNavbar({ onMenuClick, isDarkMode, onThemeToggle }: To
       </h1>
 
       <div className="flex-1" />
+
+      {/* Connection Status Badges */}
+      <div className="hidden lg:flex items-center gap-4 text-[11px] font-semibold tracking-wide mr-2 bg-gray-50 dark:bg-gray-800 px-3 py-1 rounded-full">
+        <div className="flex items-center gap-1.5">
+          <span className={`w-2 h-2 rounded-full ${isRestConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+          <span className={isRestConnected ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}>
+            Backend {isRestConnected ? 'Connected' : 'Disconnected'}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className={`w-2 h-2 rounded-full ${isWsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+          <span className={isWsConnected ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}>
+            WebSocket {isWsConnected ? 'Connected' : 'Disconnected'}
+          </span>
+        </div>
+      </div>
 
       {/* Conveyor selector */}
       <div className="relative">

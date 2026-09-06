@@ -100,6 +100,51 @@ export default function DamageAnalysis() {
         </div>
       </div>
 
+      {/* AI Camera Section */}
+      <div className="card p-5 space-y-4">
+        <p className="section-title">AI Vision Monitoring</p>
+        <p className="section-subtitle text-xs">Real-time image feed and bounding box overlays</p>
+        
+        <div className="flex flex-col md:flex-row gap-6">
+          <div className="flex-1">
+            <div className="aspect-video bg-gray-100 dark:bg-gray-900 rounded-lg flex flex-col items-center justify-center border border-dashed border-[#E5E7EB] dark:border-[#292929]">
+              <span className="text-[#6B7280] dark:text-[#A1A1AA] text-sm font-medium">Camera feed unavailable</span>
+            </div>
+          </div>
+          
+          <div className="w-full md:w-64 space-y-4">
+            <p className="text-sm font-semibold text-[#111827] dark:text-white border-b border-[#E5E7EB] dark:border-[#292929] pb-2">
+              Latest Detection
+            </p>
+            
+            {selectedDmg ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-[#6B7280] dark:text-[#A1A1AA]">Detection</p>
+                  <p className="text-sm font-medium text-[#111827] dark:text-white capitalize">{selectedDmg.type.replace('-', ' ')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[#6B7280] dark:text-[#A1A1AA]">Confidence</p>
+                  <p className="text-sm font-medium text-[#111827] dark:text-white">96.4%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[#6B7280] dark:text-[#A1A1AA]">Severity</p>
+                  <StatusBadge status={selectedDmg.severity} />
+                </div>
+                <div>
+                  <p className="text-xs text-[#6B7280] dark:text-[#A1A1AA]">Location</p>
+                  <p className="text-sm font-medium text-[#111827] dark:text-white">{selectedDmg.position} m</p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-[#6B7280] dark:text-[#A1A1AA]">
+                Select a damage event from the map or list below to view AI analysis details.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Damage Location Map */}
       <div className="card p-5 space-y-4">
         <p className="section-title">Damage Location Map — CV-04</p>

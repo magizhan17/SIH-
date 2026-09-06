@@ -35,7 +35,8 @@ interface AppState {
     maintenance: boolean;
     controlRoom: boolean;
   };
-  isBackendConnected: boolean;
+  isRestConnected: boolean;
+  isWsConnected: boolean;
   settingChanges: SettingChangeLog[];
 }
 
@@ -84,7 +85,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [settings, setSettings] = useState<SystemSettings>(defaultSettings);
   const [emergencyActionsDone, setEmergencyActionsDone] = useState({ maintenance: false, controlRoom: false });
-  const [isBackendConnected, setIsBackendConnected] = useState(false);
+  const [isRestConnected, setIsRestConnected] = useState(false);
+  const [isWsConnected, setIsWsConnected] = useState(false);
   const [settingChanges, setSettingChanges] = useState<SettingChangeLog[]>([]);
 
   const addToast = useCallback((type: ToastNotification['type'], message: string) => {
@@ -114,10 +116,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPredictionList([apiPrediction]);
       setSettings(apiSettings);
       setSensors(apiSensors);
-      setIsBackendConnected(true);
+      setIsRestConnected(true);
     } catch (e) {
       console.warn("Backend offline, using fallback mock data.");
-      setIsBackendConnected(false);
+      setIsRestConnected(false);
     }
   }, [selectedConveyor]);
 
@@ -125,39 +127,73 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  // WebSocket Connection
+  // REST Health Polling
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
-    const ws = new WebSocket(wsUrl);
-    
-    ws.onopen = () => {
-      console.log('Connected to WebSocket server');
-      setIsBackendConnected(true);
-      ws.send(JSON.stringify({ type: 'SUBSCRIBE', conveyorId: selectedConveyor }));
-    };
-
-    ws.onmessage = (event) => {
+    const checkRestStatus = async () => {
       try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'SENSOR_UPDATE') {
-          const { sensors: newSensors, riskScore: newRisk, beltHealth: newHealth } = msg.data;
-          setSensors(newSensors);
-          setRiskScore(newRisk);
-          setBeltHealth(newHealth);
-        } else if (msg.type === 'ALERT') {
-          setAlertList(prev => [msg.data, ...prev]);
-          addToast('error', `New Alert: ${msg.data.title}`);
-        }
+        await api.checkHealth();
+        setIsRestConnected(true);
       } catch (e) {
-        console.error('Error parsing WS message', e);
+        setIsRestConnected(false);
       }
     };
+    checkRestStatus();
+    const interval = setInterval(checkRestStatus, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
-    ws.onclose = () => setIsBackendConnected(false);
+  // WebSocket Connection
+  useEffect(() => {
+    let ws: WebSocket;
+    let reconnectTimeout: ReturnType<typeof setTimeout>;
+    let isComponentMounted = true;
+    
+    const connect = () => {
+      const defaultProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const defaultWsUrl = `${defaultProtocol}//${window.location.host}/ws`;
+      const wsUrl = import.meta.env.VITE_WS_URL || defaultWsUrl;
+      
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        console.log('Connected to WebSocket server');
+        setIsWsConnected(true);
+        ws.send(JSON.stringify({ type: 'SUBSCRIBE', conveyorId: selectedConveyor }));
+      };
 
-    return () => ws.close();
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'SENSOR_UPDATE') {
+            const { sensors: newSensors, riskScore: newRisk, beltHealth: newHealth } = msg.data;
+            setSensors(newSensors);
+            setRiskScore(newRisk);
+            setBeltHealth(newHealth);
+          } else if (msg.type === 'ALERT') {
+            setAlertList(prev => [msg.data, ...prev]);
+            addToast('error', `New Alert: ${msg.data.title}`);
+          }
+        } catch (e) {
+          console.error('Error parsing WS message', e);
+        }
+      };
+
+      ws.onclose = () => {
+        setIsWsConnected(false);
+        if (isComponentMounted) {
+          // Reconnect with delay
+          reconnectTimeout = setTimeout(connect, 3000);
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      isComponentMounted = false;
+      clearTimeout(reconnectTimeout);
+      if (ws) ws.close();
+    };
   }, [selectedConveyor, addToast]);
 
   const simulateDamage = useCallback(async () => {
@@ -238,7 +274,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     alerts: alertList, damages: damageList, laserScans: scanList,
     currentScan, predictions: predictionList, sensors, riskScore,
     beltHealth, maxCrackDepth, estimatedRemainingDays, toasts,
-    settings, emergencyActionsDone, isBackendConnected, settingChanges,
+    settings, emergencyActionsDone, isRestConnected, isWsConnected, settingChanges,
     setSelectedConveyor, simulateDamage, resetSimulation,
     openEmergencyModal, closeEmergencyModal, acknowledgeAlert,
     addToast, removeToast, updateSettings, notifyMaintenance,

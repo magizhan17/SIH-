@@ -4,9 +4,13 @@ import type {
   MaintenancePrediction, Report, SystemSettings 
 } from '../types';
 
-const API_BASE = '/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE = `${API_URL}/api/v1`;
 
 export const api = {
+  // Health
+  checkHealth: () => axios.get(`${API_URL}/health`).then(res => res.data),
+
   // Conveyors
   getConveyors: () => axios.get<Conveyor[]>(`${API_BASE}/conveyors`).then(res => res.data),
   
